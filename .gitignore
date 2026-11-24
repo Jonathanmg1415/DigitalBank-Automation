@@ -1,0 +1,17 @@
+.idea
+.claude
+# Archivos generados por Gradle y Serenity
+.gradle/
+build/
+bin/
+target/
+
+# Configuracion local de los editores
+.vscode/
+*.iml
+
+# Credenciales de los usuarios internos (ADMIN y CAJERO): no se suben a GitHub
+usuarios.local.properties
+
+# Historial que genera el plugin de Serenity
+history/

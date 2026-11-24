@@ -1,0 +1,85 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+}
+
+plugins {
+	id 'io.github.jumosqu12.screenplayarchitecture' version '2.0.1'
+	// Plugin para generar el reporte de Serenity con: gradlew clean test aggregate
+	id 'net.serenity-bdd.serenity-gradle-plugin' version '4.1.3'
+	id 'java'
+    id 'eclipse'
+    id 'idea'
+}
+
+group 'co.edu.udea.calidad'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    serenityVersion = '4.1.0'
+    serenityCucumberVersion = '4.1.0'
+    lombokVersion = '1.18.22'
+    junit = '4.13.2'
+    hamcrest = '1.3'
+    serenityWebVersion = '4.1.0'
+}
+
+dependencies {
+    implementation "net.serenity-bdd:serenity-core:$rootProject.ext.serenityVersion"
+    implementation "net.serenity-bdd:serenity-junit:$rootProject.ext.serenityVersion"
+    implementation "net.serenity-bdd:serenity-screenplay:$rootProject.ext.serenityVersion"
+    implementation "net.serenity-bdd:serenity-cucumber:$rootProject.ext.serenityCucumberVersion"
+    implementation 'org.slf4j:slf4j-simple:2.0.5'
+    implementation "net.serenity-bdd:serenity-screenplay-webdriver:$rootProject.ext.serenityWebVersion"
+
+    //Test compilation
+    testImplementation "junit:junit:$rootProject.ext.junit"
+    testImplementation "org.hamcrest:hamcrest-all:$rootProject.ext.hamcrest"
+    implementation 'org.slf4j:slf4j-simple:2.0.5'
+    testImplementation("io.github.bonigarcia:webdrivermanager:5.4.1")
+
+    //Lombok dependencies
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor  "org.projectlombok:lombok:${lombokVersion}"
+    testCompileOnly  "org.projectlombok:lombok:${lombokVersion}"
+
+    //Additional library
+    implementation group: 'org.apache.commons', name: 'commons-dbcp2', version: '2.12.0'
+    // Lectura de las respuestas JSON del backend al preparar los datos por API (integrations)
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2'
+
+}
+
+// Los archivos fuente están en UTF-8. Sin esto, en Windows Java los lee como
+// windows-1252 y falla con tildes o ñ en el código.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('test') {
+    // System configs
+    systemProperty 'file.encoding', 'UTF-8'
+    // Pausa entre pasos para la exposición (-Dstep.pause=ms). Por defecto 1000 ms; 0 la desactiva.
+    systemProperty 'step.pause', System.getProperty('step.pause', '1000')
+    // Permite correr solo algunos escenarios: -Dcucumber.filter.tags="@HU-11"
+    if (System.getProperty('cucumber.filter.tags')) {
+        systemProperty 'cucumber.filter.tags', System.getProperty('cucumber.filter.tags')
+    }
+    // URL del frontend (-Dwebdriver.base.url=...) y credenciales (-Dadmin.email=..., etc.)
+    ['webdriver.base.url', 'environment', 'headless.mode', 'cucumber.execution.dry-run',
+     'admin.email', 'admin.password', 'cajero.email', 'cajero.password'].each { clave ->
+        if (System.getProperty(clave)) {
+            systemProperty clave, System.getProperty(clave)
+        }
+    }
+}
