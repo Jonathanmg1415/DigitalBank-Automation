@@ -71,9 +71,14 @@ tasks.named('test') {
     systemProperty 'file.encoding', 'UTF-8'
     // Pausa entre pasos para la exposición (-Dstep.pause=ms). Por defecto 1000 ms; 0 la desactiva.
     systemProperty 'step.pause', System.getProperty('step.pause', '1000')
-    // Permite correr solo algunos escenarios: -Dcucumber.filter.tags="@HU-11"
-    if (System.getProperty('cucumber.filter.tags')) {
-        systemProperty 'cucumber.filter.tags', System.getProperty('cucumber.filter.tags')
+    // Permite correr solo algunos escenarios:
+    //   por etiqueta:          -Dcucumber.filter.tags="@HU-11"
+    //   por nombre (regex):    -Dcucumber.filter.name="Retiro exitoso"
+    //   por archivo o línea:   -Dcucumber.features="src/test/resources/features/retiro/retiro.feature:13"
+    ['cucumber.filter.tags', 'cucumber.filter.name', 'cucumber.features'].each { clave ->
+        if (System.getProperty(clave)) {
+            systemProperty clave, System.getProperty(clave)
+        }
     }
     // URL del frontend (-Dwebdriver.base.url=...) y credenciales (-Dadmin.email=..., etc.)
     ['webdriver.base.url', 'environment', 'headless.mode', 'cucumber.execution.dry-run',

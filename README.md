@@ -159,6 +159,11 @@ gradlew clean test aggregate -Denvironment=vercel
 
 El reporte queda en `target/site/serenity/index.html`.
 
+Dos configuraciones hacen que el informe salga completo:
+
+- `org.gradle.jvmargs=-Dfile.encoding=UTF-8` en `gradle.properties`. Sin ella, en Windows el daemon de Gradle lee los resultados en windows-1252, y `aggregate` descarta sin aviso los escenarios con ciertas letras acentuadas.
+- `output.formats = "json,xml,html"` en `serenity.conf`. Genera durante la ejecución la página de detalle de cada escenario. Sin ella, el informe enlaza a páginas que no existen.
+
 `step.pause` agrega una pausa entre pasos (1000 ms por defecto) para que en una exposición se pueda seguir lo que hace el navegador. Las esperas reales son por condición: la interacción `EsperarRespuesta` espera a que el botón que envió la operación deje de estar ocupado (`aria-busy`), con un límite de `digitalbank.respuesta.timeout` segundos (90 por defecto, porque Render tarda en despertar las APIs).
 
 ## Dependencias con el backend
