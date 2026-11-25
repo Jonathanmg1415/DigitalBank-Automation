@@ -15,3 +15,7 @@ usuarios.local.properties
 
 # Historial que genera el plugin de Serenity
 history/
+
+# Ambiente local: base de datos, dependencias de Maven y registros de ejecución
+ambiente-local/datos/
+ambiente-local/logs/

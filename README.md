@@ -85,17 +85,62 @@ La única excepción es el flujo de extremo a extremo, que crea todo desde la in
 
 Las llamadas a la API pasan por el mismo origen del frontend (`/svc/auth`, `/svc/core`, `/svc/reportes`), así que solo hay que configurar la URL del frontend.
 
-## Requisitos para ejecutar
+## Ambiente local
 
-1. **Java 17.** Gradle 7.6.4 no funciona con Java 21 ni con Java 25. Si tiene varias versiones, en PowerShell:
-   ```powershell
-   $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.x.x-hotspot"
-   ```
-2. **El frontend corriendo**, por defecto en http://localhost:5173 (`npm run dev` en DigitalBank-Frontend).
-3. **Un backend con la rama `main`** (rutas `/api/v1/...`) que devuelva el campo `id` en el listado de cuentas (ver "Dependencias con el backend").
-4. **Usuarios ADMIN y CAJERO** en ese backend. Copie `usuarios.example.properties` como `usuarios.local.properties` y escriba sus credenciales. Ese archivo está en el `.gitignore`. Los clientes los crea cada escenario.
+Las pruebas corren contra un ambiente local completo, que se controla con dos scripts. No dependen de Render ni de quién tenga acceso a su base de datos, y nadie más puede reiniciar ese ambiente durante una presentación.
+
+### Herramientas necesarias
+
+| Herramienta | Uso |
+|---|---|
+| JDK 21 (Eclipse Adoptium o Java) | Compilar y correr el backend |
+| JDK 17 | Correr estas pruebas (Gradle 7.6.4 no funciona con Java 21 ni con Java 25) |
+| PostgreSQL (cualquier versión reciente, instalada en `C:\Program Files\PostgreSQL`) | Solo se usan sus programas: el script crea un clúster propio y no toca el servicio instalado |
+| Node.js 20 o superior | Correr el frontend |
+| Git para Windows | Trae `openssl`, con el que se genera el certificado SSL de la base local |
+
+Los tres repositorios deben estar en la misma carpeta: `DigitalBank-Backend`, `DigitalBank-Frontend` y `DigitalBank-Automation`.
+
+### Comandos
+
+Desde la carpeta de este repositorio, en PowerShell:
+
+```powershell
+# Levanta PostgreSQL (puerto 55433), las tres APIs (8081, 8082, 8083) y el frontend (5173)
+.\ambiente-local\iniciar.ps1
+
+# Después de cambiar de rama en el backend, para volver a compilarlo
+.\ambiente-local\iniciar.ps1 -Compilar
+
+# Detiene todo y conserva los datos; con -BorrarDatos empieza de cero la próxima vez
+.\ambiente-local\detener.ps1
+```
+
+La primera vez compila el backend y descarga sus dependencias, lo que tarda varios minutos. Después arranca en unos 30 segundos. El script:
+
+1. Compila la rama que tenga activa el backend. Usa su propia configuración de Maven (`ambiente-local/maven-settings.xml`), así que no depende del mirror que pueda tener el `settings.xml` del usuario.
+2. Crea, si no existe, una base PostgreSQL con SSL en `ambiente-local/datos`, porque el backend exige `sslmode=require`.
+3. Inicia `core-api` primero (aplica las migraciones) y luego `auth-api` y `reportes-api`.
+4. Crea los usuarios ADMIN-QA y CAJERO-QA con `docs/scripts/crear-usuarios-internos.sql` del backend.
+5. Apunta el frontend a las APIs locales (`.env.local`) y lo inicia.
+
+Los registros de cada proceso quedan en `ambiente-local/logs`. Las carpetas `datos` y `logs` no se suben a GitHub.
+
+Si PowerShell no deja ejecutar scripts, permítalo solo para la sesión actual:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+### Credenciales de las pruebas
+
+Copie `usuarios.example.properties` como `usuarios.local.properties` (está en el `.gitignore`) y escriba las credenciales de ADMIN y CAJERO. Para el ambiente local son las del documento de casos de prueba: `admin.qa@digitalbank.test` y `cajero.qa@digitalbank.test`. Los clientes los crea cada escenario.
+
+Para usar el frontend a mano, entre con el ADMIN y registre clientes desde "Registrar cliente".
 
 ## Ejecución
+
+Con el ambiente local arriba y Java 17 activo (`$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.x.x-hotspot"`):
 
 ```bash
 # Todos los escenarios y el reporte
@@ -108,7 +153,7 @@ gradlew clean test aggregate -Dcucumber.filter.tags="@seguridad"
 # Sin pausas entre pasos y sin abrir ventanas del navegador
 gradlew clean test aggregate -Dstep.pause=0 -Dheadless.mode=true
 
-# Contra el frontend desplegado (ajuste la URL del ambiente "vercel" en serenity.conf)
+# Contra el frontend desplegado en https://digital-bank-frontend-nu.vercel.app
 gradlew clean test aggregate -Denvironment=vercel
 ```
 
@@ -118,9 +163,9 @@ El reporte queda en `target/site/serenity/index.html`.
 
 ## Dependencias con el backend
 
-Al 24/11/2026 las pruebas no se pueden ejecutar contra el despliegue de Render, por dos razones:
+Al 24/11/2026 las pruebas corren contra el ambiente local y no contra el despliegue de Render, por dos razones:
 
 1. **Render sirve una versión anterior del backend** (Sprint 2): rutas `/api/...` sin `/v1` y sin los endpoints del Sprint 3. Hay que volver a desplegar `main`.
 2. **El listado de cuentas no devuelve el identificador de la cuenta.** Retiro, transferencia, depósito, bloqueo, cierre e historial reciben el UUID de la cuenta en la ruta, pero `GET /api/v1/clientes/{clienteId}/cuentas` solo devuelve el número. Se corrige agregando `id` a `CuentaResumenResponse` en core-api (y ajustando `ClienteCuentasControllerTest`). Sin ese cambio, el frontend muestra un aviso y no envía esas operaciones, y los escenarios correspondientes fallan con ese aviso.
 
-Para validar la automatización se usó un backend local con ese cambio aplicado: las tres APIs de `main` sobre PostgreSQL, con los usuarios ADMIN-QA y CAJERO-QA creados con `docs/scripts/crear-usuarios-internos.sql`.
+La corrección del punto 2 está en la rama `fix/hu-08-id-cuenta` del backend. Con esa rama activa, el ambiente local pasa los 53 escenarios. Con `main`, pasan 18 y los otros 35 fallan con el aviso del identificador.
